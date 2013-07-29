@@ -1,0 +1,10 @@
+#ifndef INCLUDE_UTX_HAL_COMMON_H
+#define INCLUDE_UTX_HAL_COMMON_H
+
+#define OS_NAME "UTX"
+#define OS_VERSION_MAJOR 0
+#define OS_VERSION_MINOR 1
+
+#define OS_ID_STRING UTX_OS_NAME
+
+#endif

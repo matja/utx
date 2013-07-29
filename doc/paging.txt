@@ -1,0 +1,190 @@
+
+
+PD = page directory
+ 4kB array of PDEs (1024 in 32-bit mode, 512 in 64-bit/PAE mode)
+
+PDE = page directory entry
+ one element of the PD.
+ contains most significant bits of a physical address pointer to a page
+ table or a page, and several flags.
+
+PT = page table
+ 4kB array of PTEs (1024 in 32-bit mode, 512 in 64-bit/PAE mode)
+
+PTE = page table entry
+ one element of the PDT
+ contains most significant bits of a physical address pointer
+ to a page, and several flags.
+
+-----------------------------------------------------------------------------
+4k pages (386+)
+-----------------------------------------------------------------------------
+
+Bit 31 of CR0 (PG flag) enables paging if set.
+CR3 points to PD.
+Linear address bits 31-22 index PD to get PDE.
+PDE points to 4k-aligned PT.
+Linear address bits 31-12 index PT to get PTE.
+PTE points to 4k-aligned 4k page.
+Linear address bits 11-0 index page.
+
+linear address
++------------------------------------+
+| 3322222222 2211111111 11           |
+| 1098765432 1098765432 109876543210 |
++------------------------------------+
+  |          |          |
+  10 bits    10 bits    12 bits---------------+
+  |          |                                |
+  |          |        +---->+-----------+   +-|-->+------------+
+  | CR3      |        |     |PT         |   | |   |4k page     |
+  |  |       +--------|-+   +-----------+   | |   +------------+
+  |  v                | |   |entry 0x000|   | +-->|offset 0x000|
+  |  +------------+   | |   |entry 0x001|   |     |...         |
+  |  |PD          |   | +-->|...   ---------+     |offset 0xfff|
+  |  +------------+   |     |entry 0xfff|         +------------+
+  |  |entry 0x000 |   |     +-----------+
+  |  |entry 0x001 |   |
+  +->|...   (PS=0)----+
+     |entry 0xfff |
+     +------------+
+
+-----------------------------------------------------------------------------
+4M pages (PSE)
+-----------------------------------------------------------------------------
+
+If CPUID.01H:EDX.PSE (bit 3) = 1 then CR4.PSE (bit 4) can be used, allowing
+4M pages.
+
+With PSE enabled, PDEs have PSE flag which signify that the PDE
+points to a 4M page, rather than to a PT.
+PDEs having PSE=0 can be mixed with PDEs having PSE=1.
+
+linear address
++-----------------------------------+
+| 3322222222 221111111111           |
+| 1098765432 1098765432109876543210 |
++-----------------------------------+
+  |          |
+  10 bits    22 bits
+  |          |         +--->+---------------+
+  | CR3      |         |    |4M page        |
+  |  |       +---------|-+  +---------------+
+  |  v                 | |  |offset 0x000000|
+  |  +--------------+  | |  |offset 0x000001|
+  |  |page directory|  | +->|...            |
+  |  +--------------+  |    |offset 0x3fffff|
+  |  |entry 0x000   |  |    +---------------+
+  |  |entry 0x001   |  |
+  +->|...    (PS=1)----+
+     |entry 0xfff   |
+     +--------------+
+
+-----------------------------------------------------------------------------
+4k pages with PAE (Pentium Pro and later)
+-----------------------------------------------------------------------------
+
+PDE/PTE's are enlarged to 8 bytes to accomodate larger physical addresses
+(36-bits, up to 64GiB) and more flags.
+
+PT/PD are still 4kB so there are 512 PTEs/PDEs in each table rather than
+1024, and thus 9 bits from the linear address index them instead of 10.
+
+Since now 9 bits are used for the PDE/PTE offsets, 2 bits are left in the
+linear address, which is used to index a new page directory pointer table.
+
+CR3 points to PDPT.
+Linear address bits 31-30 index PDPT to get PDPTE.
+PDPTE points to 4k-aligned PD.
+Linear address bits 29-21 index PD to get PDE.
+PDE points to 4k-aligned PT.
+Linear address bits 20-12 index PT to get PTE.
+PTE points to 4k-aligned 4k page.
+Linear address bits 11-0 index page.
+
+linear address
++-------------------------------------+
+| 33 222222222 211111111 11           |
+| 10 987654321 098765432 109876543210 |
++-------------------------------------+
+  |          |         |            |
+  2 bits     9 bits    9 bits       12 bits--------+
+  |          |         |                           |
++-+  CR3     |         |      +--->+-----------+ +-|->+------------+
+|    |       |         |      |    |PT         | | |  |4k page     |
+|    v       |         +------|-+  +-----------+ | |  +------------+
+| +------+   |                | |  |entry 0x000| | +->|offset 0x000|
+| |PDPT  | +--->+----------+  | |  |entry 0x001| |    |...         |
+| +------+ | |  |PD        |  | +->|...   -------+    |offset 0xfff|
+| |PDPTE0| | |  +----------+  |    |entry 0x7ff|      +------------+
++>|PDPTE1|-+ |  |PDE 0x000 |  |    +-----------+
+  |PDPTE2|   |  |PDE 0x001 |  |
+  |PDPTE3|   +->|... (PS=0)---+
+  +------+      |PDE 0x7ff |
+                +----------+
+
+-----------------------------------------------------------------------------
+2M pages (PSE) with PAE (Pentium Pro and later)
+-----------------------------------------------------------------------------
+
+With CR4.PAE (bit 5) and CR4.PSE (bit 4) set, PDEs have a PSE flag which
+signify that the PDE points to a 4M page, rather than to a PT.
+PDEs having PSE=0 can be mixed with PDEs having PSE=1.
+
+linear address
++------------------------------------+
+| 33 222222222 21111111111           |
+| 10 987654321 098765432109876543210 |
++------------------------------------+
+  |          |         |
+  2 bits     9 bits    21 bits
+  |          |         |
++-+  CR3     |         |      +--->+---------------+
+|    |       |         |      |    |2M page        |
+|    v       |         +------|-+  +---------------+
+| +------+   |                | |  |offset 0x000000|
+| |PDPT  | +--->+----------+  | |  |offset 0x000001|
+| +------+ | |  |PD        |  | +->|...            |
+| |PDPTE0| | |  +----------+  |    |offset 0x1fffff|
++>|PDPTE1|-+ |  |PDE 0x000 |  |    +---------------+
+  |PDPTE2|   |  |PDE 0x001 |  |
+  |PDPTE3|   +->|... (PS=1)---+
+  +------+      |PDE 0x7ff |
+                +----------+
+
+
+-----------------------------------------------------------------------------
+PSE36 (Pentium II Xeon and later)
+-----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+4k pages in AMD64 (now x86-64) / IA-32e (Athlon64, Pentium 4 and later)
+-----------------------------------------------------------------------------
+
+CR0.PG=1, CR4.PAE=1, IA32_EFER.LME=1
+
+-----------------------------------------------------------------------------
+4M pages in AMD64 (now x86-64) / IA-32e (Athlon64, Pentium 4 and later)
+-----------------------------------------------------------------------------
+
+CR0.PG=1, CR4.PAE=1, IA32_EFER.LME=1
+
+if CPUID.01H:EDX.PSE-36 (bit 17) = 1 then PSE-36 is supported, allowing
+40-bit physical address.
+
+
+-----------------------------------------------------------------------------
+1G pages in AMD64 (now x86-64) / IA-32e (Athlon64, Pentium 4 and later)
+-----------------------------------------------------------------------------
+
+CR0.PG=1, CR4.PAE=1, IA32_EFER.LME=1
+
+CR0.PG = bit 31 - enable paging
+MAXPHYADDR = CPUID.80000008H:EAX[7:0] - number of physical address bits
+CPUID.80000008H:EAX[15:8] - linear address size
+
+IA32_EFER.LME = MSR ? bit 8
+IA32_EFER.NXE = MSR ? bit 11
+PAT (Pentium III and later) - PDE/PTE bit 12 becomes PAT flag
+
+

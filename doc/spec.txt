@@ -1,0 +1,22 @@
+minimum requirements (or compatible) :
+
+Intel 386 CPU
+Intel 8259 PIC
+Intel 8042 PS/2 controller
+
+usermode process virtual memory layout
+
+page directory
+
+offset
+|     linear address
+|     |           description
+|     |           |
+000 | 0x0000000 | null page - to catch null pointer dereferences
+004 | 0x0040000 | .text
+008 | 0x0080000 | .data
+00c | 0x00c0000 | .bss
+010 | 0x0100000 | heap
+bf8 | 0xbf80000 | stack guard - to catch basic stack overflow
+bfc | 0xbfc0000 | stack
+
